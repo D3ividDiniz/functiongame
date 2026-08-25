@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>TARGET — Function / Target</title>
+<style>
+:root{
+  --bg:#000;
+  --fg:#f4f4f4;
+  --muted:#858585;
+  --line:#292929;
+  --line2:#4a4a4a;
+  --green:#39ff88;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--fg)}
+body{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+button,input{font:inherit;color:inherit}
+button{border:0;background:none;border-radius:0;cursor:pointer}
+.app{
+  width:100%;
+  height:100dvh;
+  height:100svh;
+  display:grid;
+  grid-template-rows:62% 38%;
+  overflow:hidden;
+  background:#000;
+}
+.graph-wrap{position:relative;min-height:0;overflow:hidden;border-bottom:1px solid var(--line)}
+#graph{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.hud{
+  position:absolute;z-index:2;left:0;right:0;top:0;
+  height:14%;
+  min-height:46px;
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  align-items:center;
+  gap:6px;
+  padding:0 3.5%;
+  background:linear-gradient(#000c,transparent);
+}
+.hud-main{justify-self:start;font-size:10px;letter-spacing:.12em}
+.hud-target{justify-self:center;font-size:9px;color:var(--muted);letter-spacing:.1em}
+.hud-actions{justify-self:end;display:flex;gap:5px}
+.hud-btn{
+  min-width:32px;height:30px;
+  border:1px solid var(--line2);
+  background:#050505;
+  font-size:10px;letter-spacing:.08em;
+}
+.controls{
+  min-height:0;
+  padding:2.5% 4% max(10px,env(safe-area-inset-bottom));
+  display:grid;
+  grid-template-rows:auto 1fr auto;
+  gap:7px;
+  background:#050505;
+}
+.status{display:flex;justify-content:space-between;gap:10px;font-size:9px;color:var(--muted);letter-spacing:.08em}
+.status strong{font-weight:400;color:var(--fg)}
+.editor-list{min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:6px}
+.eq-row{display:grid;grid-template-columns:29px 1fr 32px;gap:5px;min-height:38px;height:38px}
+.eq-label,.eq-input,.eq-remove{height:38px;border:1px solid var(--line);background:#000}
+.eq-label,.eq-remove{display:grid;place-items:center;color:var(--muted);font-size:10px}
+.eq-input{
+  width:100%;
+  padding:0 9px;
+  outline:none;
+  font-size:14px;
+}
+.eq-input:focus{border-color:#777}
+.eq-input.invalid{border-color:#9b3b3b}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.action{height:38px;border:1px solid var(--line2);background:#090909;font-size:9px;letter-spacing:.12em}
+.action.primary{background:var(--fg);color:#000;border-color:var(--fg)}
+.message{
+  position:absolute;z-index:3;left:50%;top:50%;
+  transform:translate(-50%,-50%);
+  text-align:center;pointer-events:none;
+  opacity:0;transition:.2s;
+}
+.message.show{opacity:1}
+.message .big{font-size:18px;letter-spacing:.16em}
+.message .small{margin-top:7px;color:#aaa;font-size:9px;letter-spacing:.1em}
+.overlay{
+  position:fixed;inset:0;z-index:30;
+  background:#000;
+  display:none;
+}
+.overlay.show{display:block}
+.menu{display:grid;grid-template-rows:16% 1fr 10%}
+.menu-head{
+  display:flex;align-items:end;justify-content:space-between;
+  padding:0 6% 4%;
+  border-bottom:1px solid var(--line);
+}
+.title{font-size:clamp(26px,8vw,44px);letter-spacing:.08em}
+.sub{margin-top:5px;font-size:8px;color:var(--muted);letter-spacing:.08em}
+.close{
+  color:var(--muted);
+  font-size:9px;
+  letter-spacing:.14em;
+  padding:8px;
+}
+.levels{
+  min-height:0;
+  padding:5.5%;
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  grid-template-rows:repeat(5,1fr);
+  gap:6px;
+}
+.level{
+  border:1px solid var(--line);
+  background:#050505;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  gap:5px;
+}
+.level.locked{opacity:.25}
+.level .n{font-size:17px}.level .s{font-size:7px;color:#777;letter-spacing:.08em}
+.level:active,.level.selected{background:#101010;border-color:#888}
+.menu-foot{
+  display:flex;align-items:center;justify-content:center;
+  border-top:1px solid var(--line);
+  color:#777;font-size:8px;letter-spacing:.1em;
+}
+.help{padding:7% 7% 6%;overflow:auto}
+.help h2{font-weight:400;letter-spacing:.08em}
+.help p{max-width:680px;color:#aaa;font-size:11px;line-height:1.75}
+.help code{color:#fff}
+.help .close{position:absolute;right:4%;top:4%}
+.toast{
+  position:fixed;z-index:50;left:50%;bottom:39%;
+  transform:translate(-50%,12px);
+  opacity:0;
+  padding:9px 12px;
+  border:1px solid #555;
+  background:#050505;
+  font-size:9px;
+  letter-spacing:.1em;
+  pointer-events:none;
+  transition:.2s;
+  white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(min-width:800px){
+  .app{grid-template-rows:64% 36%}
+  .controls{padding-left:12%;padding-right:12%}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="graph-wrap" id="graphWrap">
+    <canvas id="graph"></canvas>
+    <div class="hud">
+      <div class="hud-main" id="levelLabel">NÍVEL 01</div>
+      <div class="hud-target" id="targetLabel">ALVOS 0 / 1</div>
+      <div class="hud-actions">
+        <button class="hud-btn" id="menuBtn" type="button">M</button>
+        <button class="hud-btn" id="helpBtn" type="button">?</button>
+      </div>
+    </div>
+    <div class="message" id="message">
+      <div class="big" id="messageBig"></div>
+      <div class="small" id="messageSmall"></div>
+    </div>
+  </section>
+
+  <section class="controls">
+    <div class="status">
+      <span><strong id="score">0000</strong> PONTOS</span>
+      <span id="precision">PRECISÃO --</span>
+    </div>
+
+    <div class="editor-list" id="editor"></div>
+
+    <div class="bottom">
+      <button class="action" id="addBtn" type="button">+ EQUAÇÃO</button>
+      <button class="action primary" id="checkBtn" type="button">VERIFICAR</button>
+    </div>
+  </section>
+</div>
+
+<section class="overlay menu" id="menuOverlay" aria-hidden="true">
+  <div class="menu-head">
+    <div>
+      <div class="title">TARGET</div>
+      <div class="sub">FUNCTION / TARGET · 20 NÍVEIS</div>
+    </div>
+    <button class="close" id="closeMenu" type="button">FECHAR</button>
+  </div>
+  <div class="levels" id="levels"></div>
+  <div class="menu-foot">ARRASTE · PINÇA PARA ZOOM · M = MENU · H = AJUDA</div>
+</section>
+
+<section class="overlay help" id="helpOverlay" aria-hidden="true">
+  <button class="close" id="closeHelp" type="button">FECHAR</button>
+  <h2>COMO JOGAR</h2>
+  <p>Digite funções como <code>y=2x+1</code>, <code>y=x^2</code>, <code>y=sin(x)</code>, <code>y=log2(x)</code>, <code>y=sqrt(x)</code>, <code>y=abs(x)</code> ou <code>y=exp(x)</code>.</p>
+  <p>A curva aparece em tempo real. Cada estrela verde possui um raio de tolerância. A função vence o alvo quando a curva entra nesse círculo.</p>
+  <p>Use <b>+ EQUAÇÃO</b> para combinar funções. Menos funções e maior precisão aumentam a pontuação.</p>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* =========================================================
+   20 NÍVEIS
+   ========================================================= */
+const LEVELS = [
+  {targets:[[2,2]], tol:.42, starter:["y=x"]},
+  {targets:[[-2,-1],[2,3]], tol:.36, starter:["y=x+1"]},
+  {targets:[[-2,3],[0,1],[2,-1]], tol:.38, starter:["y=-x+1"]},
+  {targets:[[-3,1],[0,2],[3,3]], tol:.36, starter:["y=x/3+2"]},
+  {targets:[[-2,-1],[2,3],[-2,3],[2,-1]], tol:.38, starter:["y=x+1","y=-x+1"]},
+  {targets:[[-2,4],[0,0],[2,4]], tol:.45, starter:["y=x^2"]},
+  {targets:[[-2,-1],[0,3],[2,-1]], tol:.45, starter:["y=-x^2+3"]},
+  {targets:[[-1,0],[0,-1],[1,0]], tol:.42, starter:["y=2x^2-1"]},
+  {targets:[[-2,4],[0,0],[2,4],[3,3]], tol:.48, starter:["y=x^2"]},
+  {targets:[[-2,-8],[-1,-1],[1,1],[2,8]], tol:.52, starter:["y=x^3"]},
+  {targets:[[-2,2],[-1,-1],[0,0],[1,1],[2,-2]], tol:.45, starter:["y=x^3-3x"]},
+  {targets:[[-2,.25],[0,1],[1,2],[2,4]], tol:.38, starter:["y=2^x"]},
+  {targets:[[1,0],[2,1],[4,2],[8,3]], tol:.42, starter:["y=log2(x)"]},
+  {targets:[[0,0],[1,1],[4,2],[9,3]], tol:.48, starter:["y=sqrt(x)"]},
+  {targets:[[-2,2],[0,0],[2,2]], tol:.44, starter:["y=abs(x)"]},
+  {targets:[[-3.14,0],[-1.57,-1],[0,0],[1.57,1],[3.14,0]], tol:.42, starter:["y=sin(x)"]},
+  {targets:[[-3.14,-1],[-1.57,0],[0,1],[1.57,0],[3.14,-1]], tol:.42, starter:["y=cos(x)"]},
+  {targets:[[-2,2],[-1,1],[1,1],[2,2]], tol:.48, starter:["y=x^2","y=abs(x)"]},
+  {targets:[[-3,2],[-1,-1],[1,2],[3,-1]], tol:.48, starter:["y=0.1875x^3+0.5625x^2-1.875x+1"]},
+  {targets:[[-3,3],[-2,0],[-1,-2],[0,0],[1,2],[2,0],[3,3]], tol:.55, starter:["y=x^2-4","y=-x^2+4"]}
+];
+
+const STORAGE_KEY = "target_progress_v1";
+let progress;
+try { progress = JSON.parse(localStorage.getItem(STORAGE_KEY) || ""); } catch { progress = null; }
+if (!progress || typeof progress !== "object") progress = {unlocked:1,best:{}};
+progress.unlocked = Math.max(1, Math.min(20, Number(progress.unlocked) || 1));
+if (!progress.best || typeof progress.best !== "object") progress.best = {};
+
+let currentLevel = 1;
+let functions = [];
+let view = {cx:0, cy:0, scale:55};
+let dragState = null;
+let lastTouchDistance = 0;
+
+const canvas = document.getElementById("graph");
+const ctx = canvas.getContext("2d");
+const editor = document.getElementById("editor");
+const scoreEl = document.getElementById("score");
+const precisionEl = document.getElementById("precision");
+const targetLabelEl = document.getElementById("targetLabel");
+const levelLabelEl = document.getElementById("levelLabel");
+const menuOverlay = document.getElementById("menuOverlay");
+const helpOverlay = document.getElementById("helpOverlay");
+const messageEl = document.getElementById("message");
+const messageBigEl = document.getElementById("messageBig");
+const messageSmallEl = document.getElementById("messageSmall");
+const toastEl = document.getElementById("toast");
+
+function saveProgress(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+}
+
+function showToast(text){
+  toastEl.textContent = text;
+  toastEl.classList.add("show");
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(()=>toastEl.classList.remove("show"),1200);
+}
+
+function showMessage(big, small, ms=1400){
+  messageBigEl.textContent = big;
+  messageSmallEl.textContent = small;
+  messageEl.classList.add("show");
+  clearTimeout(showMessage.timer);
+  showMessage.timer = setTimeout(()=>messageEl.classList.remove("show"),ms);
+}
+
+function resizeCanvas(){
+  const rect = canvas.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  draw();
+}
+window.addEventListener("resize", resizeCanvas);
+
+/* =========================================================
+   COORDENADAS
+   ========================================================= */
+function worldToScreen(x,y){
+  return [
+    canvas.clientWidth/2 + (x-view.cx)*view.scale,
+    canvas.clientHeight/2 - (y-view.cy)*view.scale
+  ];
+}
+function screenToWorld(px,py){
+  return [
+    (px-canvas.clientWidth/2)/view.scale + view.cx,
+    (canvas.clientHeight/2-py)/view.scale + view.cy
+  ];
+}
+
+/* =========================================================
+   GRÁFICO
+   ========================================================= */
+function niceStep(){
+  const raw = 90 / view.scale;
+  const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / pow;
+  return (n < 2 ? 1 : n < 5 ? 2 : 5) * pow;
+}
+function draw(){
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  if (!w || !h) return;
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0,0,w,h);
+  drawGrid(w,h);
+  drawCurves();
+  drawTargets();
+}
+function drawGrid(w,h){
+  const step = niceStep();
+  const min = screenToWorld(0,h);
+  const max = screenToWorld(w,0);
+
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "#151515";
+
+  for (let x=Math.floor(min[0]/step)*step; x<=max[0]+step; x+=step){
+    const sx = worldToScreen(x,0)[0];
+    ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx,h); ctx.stroke();
+  }
+  for (let y=Math.floor(min[1]/step)*step; y<=max[1]+step; y+=step){
+    const sy = worldToScreen(0,y)[1];
+    ctx.beginPath(); ctx.moveTo(0,sy); ctx.lineTo(w,sy); ctx.stroke();
+  }
+
+  const ox = worldToScreen(0,0)[0];
+  const oy = worldToScreen(0,0)[1];
+  ctx.strokeStyle = "#666";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(0,oy); ctx.lineTo(w,oy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ox,0); ctx.lineTo(ox,h); ctx.stroke();
+
+  ctx.fillStyle = "#999";
+  ctx.font = "9px monospace";
+  ctx.fillText("x", w-15, Math.max(12,oy-6));
+  ctx.fillText("y", Math.min(w-10,ox+6), 12);
+}
+function drawTargets(){
+  const level = LEVELS[currentLevel-1];
+  for (let i=0;i<level.targets.length;i++){
+    const [tx,ty] = level.targets[i];
+    const [sx,sy] = worldToScreen(tx,ty);
+    const radius = Math.max(10, level.tol * view.scale);
+
+    ctx.beginPath();
+    ctx.arc(sx,sy,radius,0,Math.PI*2);
+    ctx.fillStyle = "rgba(57,255,136,.07)";
+    ctx.fill();
+    ctx.strokeStyle = "#39ff88";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    drawStar(sx,sy,Math.min(7,Math.max(4.5,radius*.28)));
+
+    if (radius > 18){
+      ctx.fillStyle = "#39ff88";
+      ctx.font = "8px monospace";
+      ctx.fillText(String(i+1), sx+radius+3, sy+3);
+    }
+  }
+}
+function drawStar(cx,cy,r){
+  ctx.save();
+  ctx.fillStyle = "#39ff88";
+  ctx.beginPath();
+  for(let i=0;i<10;i++){
+    const angle = -Math.PI/2 + i*Math.PI/5;
+    const rr = i%2 ? r : r*2.1;
+    const px = cx + Math.cos(angle)*rr;
+    const py = cy + Math.sin(angle)*rr;
+    i ? ctx.lineTo(px,py) : ctx.moveTo(px,py);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+function drawCurves(){
+  for (const fn of functions){
+    if (!fn) continue;
+
+    ctx.strokeStyle = "#f2f2f2";
+    ctx.lineWidth = 1.7;
+    ctx.beginPath();
+
+    let started = false;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+
+    for (let sx=0;sx<=width;sx+=2){
+      const [wx] = screenToWorld(sx,0);
+      const wy = safeEvaluate(fn,wx);
+
+      if (!Number.isFinite(wy) || Math.abs(wy) > 1e8){
+        started = false;
+        continue;
+      }
+
+      const sy = worldToScreen(wx,wy)[1];
+
+      if (sy < -height*2 || sy > height*3){
+        started = false;
+        continue;
+      }
+
+      if (!started) ctx.moveTo(sx,sy);
+      else ctx.lineTo(sx,sy);
+
+      started = true;
+    }
+
+    ctx.stroke();
+  }
+}
+
+/* =========================================================
+   EXPRESSÕES
+   ========================================================= */
+function safeEvaluate(fn,x){
+  try{
+    const y = fn(x);
+    return typeof y === "number" && Number.isFinite(y) ? y : NaN;
+  }catch{
+    return NaN;
+  }
+}
+
+function normalizeExpression(raw){
+  let s = String(raw || "")
+    .toLowerCase()
+    .replace(/\s+/g,"")
+    .replace(/^y=/,"")
+    .replace(/π/g,"pi");
+
+  s = s.replace(/\^/g,"**");
+
+  /* funções */
+  s = s.replace(/\blog2\(/g,"log2(");
+  s = s.replace(/\bln\(/g,"ln(");
+  s = s.replace(/\blog\(/g,"log(");
+  s = s.replace(/\bsqrt\(/g,"sqrt(");
+  s = s.replace(/\bsin\(/g,"sin(");
+  s = s.replace(/\bcos\(/g,"cos(");
+  s = s.replace(/\btan\(/g,"tan(");
+  s = s.replace(/\babs\(/g,"abs(");
+  s = s.replace(/\bexp\(/g,"exp(");
+
+  /* constantes */
+  s = s.replace(/\bpi\b/g,"P");
+
+  /* multiplicação implícita: 2x, 2(x), x(x), )x */
+  s = s.replace(/(\d|\)|x)(x|\()/g,"$1*$2");
+  s = s.replace(/(\d|\)|x)(sin|cos|tan|log2|ln|log|sqrt|abs|exp)/g,"$1*$2");
+  s = s.replace(/(P)(x|\()/g,"$1*$2");
+
+  return s;
+}
+
+function compileExpression(raw){
+  const normalized = normalizeExpression(raw);
+  if (!normalized) return null;
+
+  const allowed = /^(?:(?:\*\*)|[0-9a-zA-Z_+*/().,\-])+$/;
+  if (!allowed.test(normalized)) return null;
+
+  const translated = normalized
+    .replace(/\blog2\(/g,"LOG2(")
+    .replace(/\bln\(/g,"LN(")
+    .replace(/\blog\(/g,"LOG(")
+    .replace(/\bsqrt\(/g,"SQRT(")
+    .replace(/\bsin\(/g,"SIN(")
+    .replace(/\bcos\(/g,"COS(")
+    .replace(/\btan\(/g,"TAN(")
+    .replace(/\babs\(/g,"ABS(")
+    .replace(/\bexp\(/g,"EXP(")
+    .replace(/P/g,"PI");
+
+  try{
+    const fn = new Function(
+      "x",
+      "PI","SIN","COS","TAN","LOG","LN","LOG2","SQRT","ABS","EXP",
+      `return (${translated});`
+    );
+
+    const compiled = x => fn(
+      x,
+      Math.PI,Math.sin,Math.cos,Math.tan,
+      Math.log,Math.log,
+      v=>Math.log(v)/Math.log(2),
+      Math.sqrt,Math.abs,Math.exp
+    );
+
+    /* testa domínio sem invalidar funções como log em x <= 0 */
+    for (const sample of [-2,-1,-0.5,0,0.5,1,2]){
+      try{
+        const value = compiled(sample);
+        if (value !== undefined && typeof value !== "number") return null;
+      }catch{}
+    }
+
+    return compiled;
+  }catch{
+    return null;
+  }
+}
+
+function rebuildFunctions(){
+  functions = [...editor.querySelectorAll(".eq-input")].map(input=>{
+    const fn = compileExpression(input.value);
+    input.classList.toggle("invalid", !!input.value.trim() && !fn);
+    return fn;
+  });
+  draw();
+}
+
+/* =========================================================
+   EDITOR
+   ========================================================= */
+function renumberRows(){
+  [...editor.children].forEach((row,index)=>{
+    row.querySelector(".eq-label").textContent = `f${index+1}`;
+  });
+}
+function addEquation(value=""){
+  if (editor.children.length >= 5){
+    showToast("LIMITE DE 5 FUNÇÕES");
+    return;
+  }
+
+  const row = document.createElement("div");
+  row.className = "eq-row";
+  row.innerHTML = `
+    <div class="eq-label">f${editor.children.length+1}</div>
+    <input class="eq-input"
+      type="text"
+      inputmode="text"
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+      placeholder="y = ..."
+      value="${escapeAttr(value)}">
+    <button class="eq-remove" type="button" aria-label="Remover">×</button>
+  `;
+
+  row.querySelector(".eq-input").addEventListener("input",rebuildFunctions);
+  row.querySelector(".eq-remove").addEventListener("click",()=>{
+    row.remove();
+    renumberRows();
+    rebuildFunctions();
+  });
+
+  editor.appendChild(row);
+  rebuildFunctions();
+}
+function escapeAttr(value){
+  return String(value).replaceAll("&","&amp;").replaceAll('"',"&quot;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+}
+
+/* =========================================================
+   NÍVEIS
+   ========================================================= */
+function currentLevelData(){
+  return LEVELS[currentLevel-1];
+}
+function updateHeader(){
+  const data = currentLevelData();
+  levelLabelEl.textContent = `NÍVEL ${String(currentLevel).padStart(2,"0")}`;
+  targetLabelEl.textContent = `ALVOS 0 / ${data.targets.length}`;
+  scoreEl.textContent = String(progress.best[currentLevel] || 0).padStart(4,"0");
+  precisionEl.textContent = "PRECISÃO --";
+}
+function loadLevel(number){
+  if (number < 1 || number > LEVELS.length) return;
+  if (number > progress.unlocked){
+    showToast("NÍVEL BLOQUEADO");
+    return;
+  }
+
+  currentLevel = number;
+  view = {cx:0,cy:0,scale:55};
+  editor.innerHTML = "";
+
+  const starters = currentLevelData().starter || [""];
+  for (const eq of starters) addEquation(eq);
+
+  updateHeader();
+  closeMenu();
+  resizeCanvas();
+}
+function openMenu(){
+  renderLevelMenu();
+  menuOverlay.classList.add("show");
+  menuOverlay.setAttribute("aria-hidden","false");
+}
+function closeMenu(){
+  menuOverlay.classList.remove("show");
+  menuOverlay.setAttribute("aria-hidden","true");
+}
+function openHelp(){
+  helpOverlay.classList.add("show");
+  helpOverlay.setAttribute("aria-hidden","false");
+}
+function closeHelp(){
+  helpOverlay.classList.remove("show");
+  helpOverlay.setAttribute("aria-hidden","true");
+}
+function renderLevelMenu(){
+  const container = document.getElementById("levels");
+  container.innerHTML = "";
+
+  for (let i=1;i<=20;i++){
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "level" + (i>progress.unlocked ? " locked" : "") + (i===currentLevel ? " selected" : "");
+    button.innerHTML = `
+      <span class="n">${String(i).padStart(2,"0")}</span>
+      <span class="s">${
+        i>progress.unlocked ? "BLOQUEADO" :
+        progress.best[i] ? `MELHOR ${String(progress.best[i]).padStart(4,"0")}` :
+        "ABERTO"
+      }</span>
+    `;
+
+    if (i <= progress.unlocked){
+      button.addEventListener("click",()=>loadLevel(i));
+    }
+
+    container.appendChild(button);
+  }
+}
+
+/* =========================================================
+   VALIDAÇÃO / PONTUAÇÃO
+   ========================================================= */
+function evaluateTargets(){
+  const level = currentLevelData();
+  const distances = [];
+  let hits = 0;
+
+  for (const [tx,ty] of level.targets){
+    let best = Infinity;
+
+    for (const fn of functions){
+      if (!fn) continue;
+
+      const span = Math.max(level.tol*2, 3/view.scale);
+
+      for (let k=-16;k<=16;k++){
+        const x = tx + span*(k/16);
+        const y = safeEvaluate(fn,x);
+
+        if (!Number.isFinite(y)) continue;
+
+        best = Math.min(best, Math.hypot(x-tx,y-ty));
+      }
+    }
+
+    distances.push(best);
+    if (best <= level.tol) hits++;
+  }
+
+  const valid = distances.filter(Number.isFinite);
+  const average = valid.length ? valid.reduce((a,b)=>a+b,0)/valid.length : Infinity;
+  const precision = valid.length
+    ? Math.max(0,Math.min(100,100*(1-average/(level.tol*2))))
+    : 0;
+
+  return {hits,total:level.targets.length,precision};
+}
+
+function verify(){
+  rebuildFunctions();
+
+  if (functions.some((fn,i)=>!fn && editor.children[i].querySelector("input").value.trim())){
+    showToast("CORRIJA AS EQUAÇÕES");
+    return;
+  }
+
+  const result = evaluateTargets();
+
+  targetLabelEl.textContent = `ALVOS ${result.hits} / ${result.total}`;
+  precisionEl.textContent = `PRECISÃO ${Math.round(result.precision)}%`;
+
+  if (result.hits !== result.total){
+    showMessage(
+      `${result.hits}/${result.total} ALVOS`,
+      "Ajuste as funções e tente novamente."
+    );
+    return;
+  }
+
+  const functionCount = editor.children.length;
+  const simplicity = Math.max(.2,1-Math.max(0,functionCount-1)*.12);
+  const score = Math.round(
+    (7000 + result.precision*20) * simplicity
+  );
+
+  progress.best[currentLevel] = Math.max(
+    Number(progress.best[currentLevel]) || 0,
+    score
+  );
+
+  progress.unlocked = Math.max(
+    progress.unlocked,
+    Math.min(LEVELS.length,currentLevel+1)
+  );
+
+  saveProgress();
+
+  scoreEl.textContent = String(progress.best[currentLevel]).padStart(4,"0");
+
+  showMessage(
+    "ALVO ATINGIDO",
+    `${result.hits}/${result.total} · ${Math.round(result.precision)}% · ${functionCount} FUNÇÃO${functionCount===1?"":"ÕES"}`,
+    1600
+  );
+}
+
+/* =========================================================
+   INTERAÇÃO DO GRÁFICO
+   ========================================================= */
+canvas.addEventListener("pointerdown",event=>{
+  canvas.setPointerCapture(event.pointerId);
+  dragState = {
+    x:event.clientX,
+    y:event.clientY,
+    cx:view.cx,
+    cy:view.cy
+  };
+});
+
+canvas.addEventListener("pointermove",event=>{
+  if (!dragState || lastTouchDistance) return;
+
+  view.cx = dragState.cx - (event.clientX-dragState.x)/view.scale;
+  view.cy = dragState.cy + (event.clientY-dragState.y)/view.scale;
+  draw();
+});
+
+canvas.addEventListener("pointerup",()=>dragState=null);
+canvas.addEventListener("pointercancel",()=>dragState=null);
+
+canvas.addEventListener("wheel",event=>{
+  event.preventDefault();
+
+  const before = screenToWorld(event.offsetX,event.offsetY);
+  const factor = Math.exp(-event.deltaY*.0015);
+
+  view.scale = Math.max(12,Math.min(500,view.scale*factor));
+
+  const after = screenToWorld(event.offsetX,event.offsetY);
+  view.cx += before[0]-after[0];
+  view.cy += before[1]-after[1];
+
+  draw();
+},{passive:false});
+
+canvas.addEventListener("touchstart",event=>{
+  if (event.touches.length === 2){
+    dragState = null;
+    lastTouchDistance = Math.hypot(
+      event.touches[0].clientX-event.touches[1].clientX,
+      event.touches[0].clientY-event.touches[1].clientY
+    );
+  }
+},{passive:true});
+
+canvas.addEventListener("touchmove",event=>{
+  if (event.touches.length !== 2) return;
+
+  event.preventDefault();
+
+  const a = event.touches[0];
+  const b = event.touches[1];
+  const distance = Math.hypot(
+    a.clientX-b.clientX,
+    a.clientY-b.clientY
+  );
+  const midX = (a.clientX+b.clientX)/2;
+  const midY = (a.clientY+b.clientY)/2;
+
+  if (lastTouchDistance){
+    const before = screenToWorld(midX,midY);
+
+    view.scale = Math.max(
+      12,
+      Math.min(500,view.scale * distance/lastTouchDistance)
+    );
+
+    const after = screenToWorld(midX,midY);
+    view.cx += before[0]-after[0];
+    view.cy += before[1]-after[1];
+    draw();
+  }
+
+  lastTouchDistance = distance;
+},{passive:false});
+
+canvas.addEventListener("touchend",()=>lastTouchDistance=0,{passive:true});
+
+/* =========================================================
+   CONTROLES
+   ========================================================= */
+document.getElementById("addBtn").addEventListener("click",()=>addEquation(""));
+document.getElementById("checkBtn").addEventListener("click",verify);
+document.getElementById("menuBtn").addEventListener("click",openMenu);
+document.getElementById("helpBtn").addEventListener("click",openHelp);
+document.getElementById("closeMenu").addEventListener("click",closeMenu);
+document.getElementById("closeHelp").addEventListener("click",closeHelp);
+
+document.addEventListener("keydown",event=>{
+  if (event.key === "Escape"){
+    closeHelp();
+    if (menuOverlay.classList.contains("show")) closeMenu();
+    else openMenu();
+    return;
+  }
+
+  if (event.key.toLowerCase() === "m"){
+    openMenu();
+    return;
+  }
+
+  if (event.key.toLowerCase() === "h"){
+    openHelp();
+    return;
+  }
+
+  if (event.key === "Enter" && !menuOverlay.classList.contains("show")){
+    verify();
+  }
+});
+
+/* =========================================================
+   INIT
+   ========================================================= */
+loadLevel(1);
+</script>
+</body>
+</html>
